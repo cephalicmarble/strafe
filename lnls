@@ -1,0 +1,13 @@
+#!/bin/sh
+if [ -z "$1" ] ; then 
+	echo <<USAGE
+Usage: $0 <symbolic link> [<exists>]
+
+	Prints link target, only if exists with second argument
+USAGE
+ 	exit
+fi
+TARGET=$(stat $1 | head -1 | cut -d\> -f2 | sed -re 's/^\ +//')
+[ -z "$2" ] && echo $TARGET && exit
+[ -e "$TARGET" ] && echo $TARGET
+[ -e "$(dirname $1)/$TARGET" ] && echo "$(dirname $1)/$TARGET"

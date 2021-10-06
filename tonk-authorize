@@ -1,0 +1,17 @@
+#!/bin/sh
+#xauth extract ~amsc/.tmp-Xauthority $DISPLAY
+#xauth generate $DISPLAY . untrusted
+#xauth merge - < ~amsc/.tmp-Xauthority
+#xauth extract ~tonk/.Xauthority $DISPLAY
+#xauth extract ~donk/.Xauthority $DISPLAY
+#xauth extract /root/.Xauthority $DISPLAY
+cp {~amsc,~tonk}/.Xauthority
+chgrp tonk ~tonk/.Xauthority
+cp {~amsc,~donk}/.Xauthority
+chgrp donk ~donk/.Xauthority
+#xauth extract /var/lib/machines/email/home/.Xauthority $DISPLAY 
+xhost +si:localuser:tonk
+xhost +si:localuser:donk
+xhost +si:localuser:root
+xhost +si:localuser:ide
+xhost +si:localuser:test

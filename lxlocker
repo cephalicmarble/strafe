@@ -1,0 +1,2 @@
+#!/bin/sh
+XSECURELOCK_PASSWORD_PROMPT=emoticon XSECURELOCK_PAM_SERVICE=xsecurelock xsecurelock $@

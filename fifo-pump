@@ -1,0 +1,13 @@
+#!/bin/sh
+L="1"
+. /usr/local/scripts/nspawn-functions.sh
+while [ -w $WATCHDOG ]; do 
+	read -t 1 -u 0 L
+	if [ -z "$L" ] ; then continue ; fi
+	echo "$L"
+	if [ "$L" == "exit" ] ; then
+		break;
+	fi
+	$L
+done
+exit

@@ -1,0 +1,18 @@
+#!/bin/sh
+function suspects() {
+	for i in $(cat /etc/selinux/refpolicy-arch/contexts/files/file_contexts | cut -f1 -d\- | grep systemd | tr "*[(.\\\\" "@@@@@" | cut -f1 -d\@) ; do 
+		if [[ $(ls "${i}*" 2>/dev/null | wc -l) < 1 ]] ; then
+			echo $i
+		fi
+	done
+}
+function account_for() {
+	read l; 
+	while [[ -n "$l" ]] ; do 
+		if [[ $(find $(dirname ${l}) -name $(basename ${l})\* 2>/dev/null | wc -l) -eq 0 ]] ; then 
+			echo $l;
+		fi; 
+		read l; 
+	done
+}
+suspects | account_for

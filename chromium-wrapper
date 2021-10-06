@@ -1,0 +1,36 @@
+#!/bin/sh
+export DISPLAY=$DISPLAY;
+export XAUTHORITY=/home/tonk/.Xauthority
+UNSPAWNED=0
+if zenity --question --text="Really open unspawned browser?" --ok-label="Yes, dammit!" --cancel-label="No way!" ; then
+	if zenity --question --text="Behaving like a moron?" --ok-label="Go on and stop me!" --cancel-label="I understand the risk!" ; then
+		zenity --info --text="Like your style." &
+		sleep 2
+		exit
+	else
+		zenity --info --text="Might like to close this next window in a hurry." &
+		sleep 2
+		UNSPAWNED=1
+	fi
+fi
+if [[ $UNSPAWNED = "1" ]] ; then
+	sudo su tonk -c "env PULSE_SERVER=localhost:36515 /usr/bin/google-chrome-stable $@"
+	#su tonk -c "DISPLAY=$DISPLAY eog /home/amsc/canoe.jpg"
+else
+	export NOGPG=1
+	export NOIMG=1
+	export NOSHA=1
+	export NOEPH=1
+	DOG=/tmp/browser.watchdog
+	if [ -w $DOG ] ; then
+		zenity --info --text="Found $DOG"
+		exit
+	fi
+	#DOG=$(mktemp --tmpdir=/tmp -u browserXXXX.watchdog)
+	touch $DOG
+	function onexit() { rm $DOG; }
+	for c in EXIT KILL QUIT TERM ; do
+		trap onexit $c
+	done
+	sudo nspawn.sh $DOG browser $@
+fi

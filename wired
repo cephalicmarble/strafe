@@ -1,0 +1,5 @@
+ifconfig eth0 up
+brctl show
+ip link set dev br0 up
+modprobe br_netfilter
+ifconfig

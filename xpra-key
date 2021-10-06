@@ -1,0 +1,5 @@
+#!/bin/sh
+if [[ -z "$1" ]] ; then
+	exit
+fi
+tr -cd 0-9A-Za-z_ < /dev/urandom | fold -w 42 | head -1 > /home/$1/$2.key

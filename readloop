@@ -1,0 +1,105 @@
+#!/bin/sh
+declare -a Y; 
+self=readloop
+if [ -z "$D" ] ; then
+	D=,
+fi
+if [ -n "$REVPIPE" ] ; then
+	REDPIPE=1 $0 $(REVERSE=1 $readloop $@)
+fi
+if [ -n "$REDPIPE" ] ; then
+	if [ "$REVERSE" == 1 ] ; then
+		read -d: -a Y
+		X="${Y[@]}"
+		F=""
+		while [ -n "$X" ] ; do
+			echo $X
+			if [ -z "$F" ] ; then
+				F="$X"
+			else
+				F="$X:$F"
+			fi
+			read -d: -a Y
+			X="${Y[@]}"
+		done
+		unset REVERSE
+		echo $F | $self $@
+		exit
+	fi
+	CMD=""
+	ONCE=""
+	#echo alias cmd="echo (cmd1) (cmd2)" | readloop" {arg1} {arg2}
+	#echo $CMDS | (read -t 0 -a Y;
+	read -d: -a CMD
+	while [ -n "$CMD" ] ; do
+		echo "$CMD"
+		if [ -n "$ARGCAPT" ] ; then
+ 			if (env Z="$1" /bin/bash -c "echo '$@' | $CMD $@") ; then
+				FAL=0
+				TRU=1
+			else
+				FAL=1
+				TRU=0
+			fi
+		else
+			if (env Z="$1" /bin/bash -c "echo '$@' | $CMD") ; then
+				FAL=0
+				TRU=1
+			else
+				FAL=1
+				TRU=0
+			fi
+		fi
+		if [ -n "$FALN" ] ; then
+			FALN=$(( $FALN - 1 ))
+			if [ "$FALN" -lt 1 ] ; then
+				exit
+			fi
+		elif [ -n "$TRUN" ] ; then
+			TRUN=$(( $TRUN - 1 ))
+			if [ "$TRUN" -lt 1 ] ; then
+				exit
+			fi
+		fi
+		
+		if [ -z "$CMD" ] || [ -z "$@" ] ; then
+			exit
+		fi
+		
+		CMD=""
+		read -d: -a CMD
+	done
+fi
+read -d$D -a Y;
+if [ -n "$TERPIPE" ] ; then
+	for i in ${Y[@]} ; do 
+		echo "Z=$1 $i $@"
+		if [ -n "$ALLPIPE" ] ; then
+			if ! Z=$1 $i $@ ; then
+				exit
+			fi
+		elif [ -n "$NONPIPE" ] ; then
+			if Z=$1 $i $@ ; then
+				exit
+			fi
+		fi
+	done
+	exit
+fi
+X="${Y[@]}"
+while [ -n "$X" ] ; do 
+	if [ -n "$RP" ] ; then
+		X=$(realpath "$X");
+	fi
+	if [ "x" !=  "x$@" ] ; then 
+		if [ -x "$(which $1)" ] ; then
+			$@ "$X"
+		else
+			echo "$1$X"
+		fi
+	else
+		echo "\"$X\""
+	fi
+	read -d$D -a Y
+	X="${Y[@]}"
+done

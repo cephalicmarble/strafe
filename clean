@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ -n "$P" ] ; then
+	echo $(tr -c '[:print:]' ',')$@
+else
+	echo $(tr -c '[:alnum:]' ',')$@
+fi

@@ -1,0 +1,16 @@
+#!/bin/sh
+IF=wlan0
+ifconfig $IF down
+if [[ -n "$(pidof wpa_supplicant)" ]] ; then 
+	killall wpa_supplicant
+	#dhclient -x
+fi
+ifconfig $IF up
+wpa_supplicant -Dnl80211 -i$IF -c/etc/wpa_supplicant.conf &
+systemctl restart systemd-networkd
+dhclient $IF &
+exit
+until (ping 192.168.0.1 -c1 -w1 || ping 192.168.1.1 -c1 -w1);
+do
+	sleep 2;
+done;

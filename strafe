@@ -1,0 +1,420 @@
+#!/bin/sh
+#
+STRAFD="/mach/.machines"
+MLAYER="/mach/.journals"
+export NOBASE=1
+#
+function usage() {
+	echo "Usage: $0 (start <machine>|root|rebuild|shell <part-name>|mlist|jlist|rlist|stop-all|stop <part-name>|list|journal|system|ip <part-name>|port <part-name>|mprune|prune|dismount|unmount <nickname>|clean)"
+	exit
+}
+if [ -z "$1" ] ; then
+	usage
+fi
+#
+export STRAFD="/mach/.machines"
+#
+. wire.sh
+export NOWORK=1
+. bridge.sh
+#
+while [ -n "$1" ] ; do
+	if [ "$1" == "strafe" ] ; then
+		shift
+	fi
+	case $1 in
+		"mlist");&
+		"jlist");&
+		"rlist");&
+		"clist");&
+		"list");&
+		"mounts");&
+		"journal");&
+		"ip");&
+		"port");&
+
+		"start");&
+		"root");&
+		"rebuild");&
+		"shell");&
+		"stop-all");&
+		"stop");&
+		"system");&
+		"mprune");&
+		"prune");&
+		"dismount");&
+		"unmount");&
+		"clean")
+			VERBS="$VERBS $1"
+		;;
+		*)
+			A=$1
+			if [ "--${A/--}" == "$A" ] ; then
+				ARGS="$ARGS $A"
+			else
+				PARAMS="$PARAMS $A"
+			fi
+	esac
+	shift
+done
+
+function action_verb() {
+	VERB=$1
+	shift
+	TARGS="$ARGS"
+	TPARAMS="$PARAMS"
+	PARAMS=
+	while [ -n "$1" ] ; do
+		A=$1
+		if [ "--${A/--}" == "$A" ] ; then
+			ARGS="$ARGS $A"
+		else
+			PARAMS="$PARAMS $A"
+		fi
+		shift			
+	done
+	if [[ "$ARGS" =~ "--debug" ]] ; then
+		echo "action_verb $VERB" 1>&2
+		echo "PARAMS=$PARAMS ARGS=$ARGS" 1>&2
+	fi
+	case $VERB in
+		"start");&
+		"mlist");&
+		"jlist");&
+		"rlist");&
+		"clist");&
+		"list");&
+		"mounts");&
+		"journal");&
+		"ip");&
+		"port");&
+		"stop");&
+		"prune");&
+		"dismount");&
+		"shell");&
+		"unmount")
+			if [ -z "$PARAMS" ] ; then
+				PARAMS="$PARAMS$TPARAMS"
+			fi
+		;;
+		"clean");&
+		"stop-all");&
+		"rebuild");&
+		"system");&
+		"journal");&
+		"stop_one")
+		true
+		;;
+		*)
+			PARAMS="$PARAMS$TPARAMS"
+		;;
+	esac
+	case $VERB in
+		"start")
+			if [ -z "$PARAMS" ] ; then
+				usage
+			fi
+			pushd /mach/machines
+			for i in $PARAMS ; do
+				if [ -f /mach/machines/$i.raw ] ; then
+					(lxterminal -e "IMG=/mach/machines/$i.raw NOSHL=1 nspawn.sh $i";action_verb stop $PARAMS) & disown
+				else
+					(lxterminal -e "NOIMG=1 NOSHL=1 nspawn.sh $i";action_verb stop $PARAMS) & disown
+				fi
+			done
+		;;
+		"root")
+			if zenity --timeout=5 --question --text="Root shell in /mach/machines?" --ok-label="Yarr." --cancel-label="Avaunt!" ; then
+				echo "Yarrup."
+				pushd /mach/machines
+				/bin/bash -i
+				popd
+				echo "See you later, guv'nor."
+			else
+				echo "Nice one, witch-finder general. 'Course not."
+				exit
+			fi				
+		;;
+		"rebuild")
+			pushd /mach/machines
+			MACHINES="${TPARAMS/\ }"
+			if [ -z "$MACHINES" ] ; then
+				for i in *.pkgs ; do
+					d=$(basename *.pkgs)
+					if [ -d $d ] && ! [ -L $d ] && [ $(dirname $(realpath $d)) == "/mach/machines" ] ; then
+						MACHINES="$MACHINES $d"
+					fi
+				done
+			fi
+			for i in $MACHINES ; do
+				if [ -f ./$i/etc/os-release ] ; then
+					rm $i -fr
+				fi
+			done
+			if [[ "$ARGS" =~ "--pacstrap" ]] ; then
+				rm pacstrap -fr/mach/machines/
+				rebuild-machines.sh pacstrap
+			fi
+			if [[ "$ARGS" =~ "--base" ]] ; then
+				rm base -fr
+				rebuild-machines.sh base
+			fi
+			for i in $MACHINES ; do
+				if [[ "$ARGS" =~ "--raw" ]] ; then
+					CMD=mkraw-machine.sh
+					OUTPUT=/mach/machines/$i.raw
+				elif [[ "$ARGS" =~ "--bind" ]] ; then
+					CMD="TMPBIND=1 rebuild-machines.sh"
+					OUTPUT=/mach/machines/$i
+				else
+					CMD="rebuild-machines.sh"
+					OUTPUT=/mach/machines/$i
+				fi
+				$CMD $i
+			done
+			popd
+		;;
+		"shell")
+			if [ -z "$PARAMS" ] ; then
+				usage
+			fi
+			SEEN=0
+			for i in $PARAMS ; do 
+				if [ "$SEEN" == 1 ] ; then
+					CMD="$CMD $i"
+				else
+					PRM="$i"
+					SEEN=1
+				fi
+			done
+			machinectl shell $(sudo strafe mlist $PRM) $CMD
+		;;
+		"stop-all")
+			for R in $(action_verb rlist) ; do
+				DOG=$R/flags/watchdog
+				EXITING=$R/flags/exiting
+				if ! [ -f $DOG ] && ! [ -f $EXITING ] ; then
+					unlink $i
+					continue
+				fi
+				echo 2 > $DOG
+			done
+			true
+		;;
+		"stop_one")
+			MACHL=$(find /mach/.machines/run/ -maxdepth 1 -name "*${PARAMS/\ }*")
+			if [[ -z "$MACHL" ]] ; then
+				echo "No machine '$PARAMS' found."
+				exit
+			fi
+			if [[ "$MACHL" =~ " " ]] ; then
+				echo "$MACHL"
+				exit
+			fi
+			if [ -L "$(realpath $MACHL)/flags/watchdog" ] ; then
+				echo 2 > $(realpath $(realpath $MACHL)/flags/watchdog)
+			fi
+			true
+		;;
+		"stop")
+			for p in $TPARAMS ; do
+				action_verb stop_one $p
+			done
+		;;
+		"mlist")
+			if [ -n "$PARAMS" ] ; then
+				machinectl list | grep container | cut -f1 -d\  | grep $PARAMS
+			else
+				machinectl list | grep container | cut -f1 -d\ 
+			fi
+			true
+		;;
+		"jlist")
+			if [ -n "$PARAMS" ] ; then
+				find $(realpath /mach/.journals) -type d -name upper | cut -f4,5,6,7,8 -d/ | grep $PARAMS
+			else
+				find $(realpath /mach/.journals) -type d -name upper | cut -f4,5,6,7,8 -d/
+			fi
+			true
+		;;
+		"rlist")
+			if [ -n "$PARAMS" ] ; then
+				find $STRAFD/run -maxdepth 1 -type l -name "*$PARAMS*"
+			else
+				find $STRAFD/run -maxdepth 1 -type l
+			fi
+			true
+		;;
+		"clist")
+			if [ -n "$PARAMS" ] ; then
+				find $MLAYER/chains -maxdepth 3 -type d -name upper | grep $PARAMS
+			else
+				find $MLAYER/chains -maxdepth 3 -type d -name upper
+			fi
+			true			
+		;;
+		"list")
+			if [ -n "$PARAMS" ] ; then
+				ls $STRAFD/run | tr '+' '-' | grep "$PARAMS"
+			else
+				ls $STRAFD/run | tr '+' '-' 
+			fi
+			true
+		;;
+		"mounts")
+			if [ -n "$PARAMS" ] ; then
+				cat /proc/mounts | grep $STRAFD/mounts | cut -f2 -d\  | grep $PARAMS
+			else
+				cat /proc/mounts | grep $STRAFD/mounts | cut -f2 -d\ 
+			fi
+			true
+		;;
+		"journal")
+			DIR=$(action_verb jlist $TPARAMS | tail -1)
+			shift 2
+			journalctl -xe -D $(realpath /mach/.journals)/$DIR/var/log/journal/ $TPARAMS
+		;;
+		"system")
+			DIR=$(realpath $(action_verb list $TPARAMS) | head -1)
+			shift 2
+			systemctl --root=$DIR/machine $TPARAMS
+		;;
+		"ip")
+			MACHL=$(find /mach/.machines/run/ -maxdepth 1 -name "*$PARAMS*")
+			if [ -f $MACHL/world ] ; then
+				. $MACHL/world
+			fi
+			echo $MACHIP
+			true
+		;;
+		"port")
+			MACHL=$(find /mach/.machines/run/ -maxdepth 1 -name "*$PARAMS*")
+			if [ -f $MACHL/world ] ; then
+				. $MACHL/world
+				. $MACHL/nspawn-$MACHINE
+				. wire.sh
+				HOST=$MACHIP
+				PORT="$CONEPORT" HOST="$HOST" tellport "status:$(( $PORT + 1 ))"
+			fi
+			echo $PORT
+			true
+		;;
+		"mprune")
+			for MACHNAME in $(action_verb mlist $PARAMS) ; do
+				R=/mach/.machines/run/$(echo $MACHNAME | tr '-' '/')
+				echo $R
+				if [ -f $R/flags/exiting ] ; then
+					sleep 11
+				fi
+				echo $MACHNAME
+				if [[ "$ARGS" =~ "--terminate" ]] ; then
+					echo "machinectl terminate $MACHNAME"
+					machinectl terminate $MACHNAME
+				else
+					echo "machinectl poweroff $MACHNAME"
+					machinectl poweroff $MACHNAME
+				fi
+			done
+			true
+		;;
+		"prune")
+			if ! [[ "$ARGS" =~ "--ignore-machinectl" ]] ; then
+				M=$(machinectl list)
+			fi
+			MM=
+			for i in $(action_verb rlist $PARAMS) ; do
+				MACH=$(echo $i | cut -f5,6,7 -d/ --output-delimiter=-)
+				if ! [[ "$ARGS" =~ "--ignore-machinectl" ]] ; then
+					if [[ "$M" =~ "$L" ]] ; then
+						continue
+					fi
+				fi
+				echo $i
+				if [ ! -r $(realpath $i) ] ; then
+					unlink $i
+				else
+					find $(realpath $i) -type f -exec rm {} \;
+					find $(realpath $i) -type d -exec rmdir {} \;
+					unlink $i
+				fi
+				MM="$MM $M"
+				if [ 0 -lt $(action_verb dismount $MACH | wc -l) ] ; then
+					action_verb dismount $MACH
+				fi
+			done
+			true
+		;;
+		"unmount")
+			NICKNAME=${PARAMS/ }
+			BINDDIR=$STRAFD/mounts/$NICKNAME/bind
+			echo $BINDDIR
+			umount -R $BINDDIR
+			true
+		;;
+		"dismount")
+			#TIMESTAMP=$(echo $(dirname $M) | cut -f7)
+			if ! [[ "$ARGS" =~ "--ignore-machinectl" ]] ; then
+				M=$(machinectl list)
+			fi
+			for i in $(action_verb mounts $PARAMS | grep -E '[a-z]+\/[a-z]+\/[0-9]+/[a-z]+$') ; do
+				echo $i
+				if [ -n "$PARAMS" ] && ! [[ "$PARAMS" =~ "$i" ]] ; then
+					continue
+				fi
+				dir=$(echo $i | cut -f5,6,7 -d/ --output-delimiter=/)
+				m=$(echo $i | cut -f5,6,7 -d/ --output-delimiter=-)
+				if ! [[ "$ARGS" =~ "--ignore-machinectl" ]] ; then
+					if [[ "$M" =~ "$m" ]] ; then
+						continue
+					fi
+				fi
+				action_verb unmount $dir
+				if [ -d $STRAFD/mounts/$dir ] ; then
+					rm $STRAFD/mounts/$dir/* -fr
+					rmdir $STRAFD/mounts/$dir
+				fi
+			done
+			true
+		;;
+		"clean")
+			action_verb prune
+			find /mach/.machines/mounts/ -maxdepth 2
+			find /mach/.machines/run/	 -maxdepth 2
+			find /mach/.journals/		 -maxdepth 2
+			find /mach/.chains/			 -maxdepth 1
+			read -p 'clean up?' Y
+			find /usr/lib/systemd/system -name mach-.machines-mounts\* -type f -exec /bin/bash -c "echo {}; rm {};" \;
+			find /usr/lib/systemd/system -name mach-.chains\* -type f -exec /bin/bash -c "echo {}; rm {};" \;
+			if [ "$Y" == 'y' ] ; then
+				rm /mach/.journals/* -fr
+				rm /mach/.chains/* -fr
+				rm /mach/.machines/mounts/* -fr
+			fi
+		;;
+		*)
+			false
+	esac
+	ARGS="$TARGS"
+	PARAMS="$PARAMS"
+}
+#
+if [[ "$ARGS" =~ "--debug" ]] ; then
+	echo "VERBS=$VERBS"
+	echo "ARGS=$ARGS"
+	echo "PARAMS=$PARAMS"
+fi
+for i in $VERBS ; do
+	if ! action_verb $i $@ ; then
+		echo "$VERBS $ARGS"
+		echo "$DONE for $PARAMS"
+		exit
+	fi
+	DONE="$DONE $i"
+done
+if [ -z "$DONE" ] ; then
+	usage
+fi
+echo "$VERBS $ARGS" 1>&2
+echo "$DONE for $PARAMS" 1>&2
+echo "Done." 1>&2
+#

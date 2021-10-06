@@ -1,0 +1,2 @@
+#!/bin/sh
+sudo network-stop; sudo network-start ; sudo default-route.sh ; tonk-authorize;

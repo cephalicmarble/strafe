@@ -1,0 +1,18 @@
+#!/bin/sh
+B="$1"
+E="$2"
+if [ -z "$B" ] ; then
+	B=1;
+	E=$(ls /tmp/chain* | wc -l)
+fi
+if [ -z "$E" ] ; then
+	E=$(ls /tmp/chain* | wc -l)
+fi
+if [ "-" == "$E" ] ; then
+	E="$B"
+fi
+
+until [[ $(( $B - $E )) -gt 0  ]] ; do 
+	cat /tmp/chain${B}???? | (X=""; while true; do read X; if [ -z "$X" ] ; then exit ; else echo $X | bash -i ; fi; done)
+	B=$(( $B + 1 ))
+done

@@ -1,0 +1,17 @@
+#!/bin/sh
+. /etc/profile.d/hosts.sh
+if route -n | grep $rth0 ; then
+	route del -net $h0 gw 0.0.0.0 dev eth0
+	route del -net $h0 gw $rth0 dev eth0
+fi
+ifconfig eth0 $dtcf netmask 255.255.255.0
+route -n
+if ping -n $rtcf -c1 ; then
+	route del -net $cf0 dev eth0
+	route add -net $cf0 gw $rtcf dev eth0
+	route add -host $bthub gw $rtcf dev eth0
+else
+	echo "Failed to ping $rtcf!"
+	arping $rtcf
+	exit
+fi

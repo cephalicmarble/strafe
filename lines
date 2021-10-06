@@ -1,0 +1,2 @@
+#!/bin/sh
+T=0;for n in $(find $@); do T=$(( $T + $(( $(wc -l < $n) )) )); done; echo $T;

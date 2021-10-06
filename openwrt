@@ -1,0 +1,61 @@
+#!/bin/bash
+
+CONFIG=" \
+	wireless.uci \
+	dropbear.uci \
+	network.uci \
+    firewall.uci \
+	dhcp.uci \
+	etc-dropbear-authorized_keys.openwrt 
+	"
+RCV_IP=$(ip address show dev enp4s0 | grep 192.168 | head -1 | sed -E 's/^.+inet ((([0-9]+\.?)){4}).*$/\1/g')
+NC_PORT=2323
+WRT_IP=192.168.1.1
+SSH_CMD="ssh root@$WRT_IP "
+ETH=$(cat /proc/net/dev | cut -f1 -d: | grep -e '^[e].*')
+
+DIR="$2"
+if [ -z "$2" ] ; then 
+	DIR=openwrt ; 
+fi
+
+FILE=$(mktemp)
+
+. scripts/openwrt-functions.sh 
+
+config() {
+	echo "$0 $1 in $DIR"
+	for i in $CONFIG ; do
+		echo -n "$i..." 1>&2
+		c="$DIR/$i"
+		if [ "${i/.uci}" != "$i" ] ; then
+			s="${i/.uci}"
+			if [ "$1" == "up" ] ; then
+				snd_section $c $s
+			else
+				exportconfig $c $s
+			fi
+		else
+			d="/$i"
+			if [ "$1" == "up" ] ; then
+				snd_path $c $d
+			else
+				fetchcopy $c $d
+			fi
+		fi
+		echo "done." 1>&2
+	done
+}
+
+if [ "$1" == "up" ] ; then
+	sudo ifconfig $ETH up
+	sudo dhclient
+	ssh-keygen -R $WRT_IP && $SSH_CMD
+	config $1
+	echo "reload_config ; killall dropbear ; dropbear & disown" >> $FILE
+	$SSH_CMD $(< $FILE)
+else
+	if [ ! -d openwrt ] ; then mkdir openwrt ; fi
+	config $1
+	killall nc
+fi

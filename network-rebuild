@@ -1,0 +1,32 @@
+485	 machinectl halt browser
+486	 machinectl stop browser
+487	 ps ax
+488	 grep Neighbour -A10 /etc/systemd/network
+489	 grep Neighbour -A10 /etc/systemd/network -r
+490	 grep Neighbor -A10 /etc/systemd/network -r
+491	 ifconfig eth0 192.168.1.2/24
+492	 route -n
+493	 arp
+494	 grep Neigh -A10 /etc/systemd/network
+495	 grep Neigh -A10 /etc/systemd/network -r
+496	 arp -s 192.168.1.1 2c:fd:a1:de:f7:80
+497	 arping 192.168.1.1
+498	 ping 192.168.1.1 -c1
+499	 exit
+500	 fc -l
+508	 sudo su -c "chmod -R 0600 etc/dropbear/"
+509	 cat ~amsc/phone21/id_rsa.phone.s9.2021-01-04.pub >> etc/dropbear/authorized_keys 
+510	 sudo su -c "cat ~amsc/phone21/id_rsa.phone.s9.2021-01-04.pub >> etc/dropbear/authorized_keys "
+511	 sudo su-c "vim etc/dropbear/authorized_keys"
+512	 sudo su -c "vim etc/dropbear/authorized_keys"
+513	 tar -zcf ../backup-OpenWrt-2021-4-29.tar.gz etc
+514	 sudo su -c "tar -zcf ../backup-OpenWrt-2021-4-29.tar.gz etc"
+515	 sudo su -c "chown amsc:amsc ../backup-OpenWrt-2021-4-29.tar.gz"
+516	 cp ../backup-OpenWrt-2021-4-29.tar.gz ~tonk/Downloads/
+517	 rm ~tonk/Downloads/backup-OpenWrt-2021-4-2*
+518	 ifconfig
+519	 sudo network-start
+520	 sudo su 
+521	 fc -l
+522	 fc -l >> /usr/src/scripts/network-rebuild 
+523	 sudo su -c "chown amsc:wheel /usr/src/scripts/network-rebuild"

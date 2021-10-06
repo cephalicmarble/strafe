@@ -1,0 +1,4 @@
+#!/bin/sh
+IF=eth0
+ifconfig $IF down
+#killall wpa_supplicant

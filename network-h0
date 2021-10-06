@@ -1,0 +1,75 @@
+#!/bin/sh
+. /etc/profile.d/hosts.sh
+T="$@ $test"
+function prompt() {
+	read -n 1 -s -p "$1?" OK; 
+	if [[ -n "$OK" ]] ; then 
+		echo "$2" ; 
+	else 
+		echo "$OK"; 
+	fi
+}
+function testing() {
+	if [[ -z "$T" ]] ; then
+		false
+	else
+		true
+	fi
+}
+IDX=1
+FOOLS=""
+rm /tmp/chain*
+function append() {
+	TMP=$(mktemp --tmpdir=/tmp -u chain${IDX}XXXX)
+	read IN
+	echo "$IN" > $TMP
+	IDX=$(( $IDX + 1 ))
+	FOOLS="$FOOLS $TMP"
+	echo $TMP
+}
+function printout() {
+	cat << WORD
+for i in /tmp/chain* ; do cat \$i | (X=""; while true; do read X; if [ -z "\$X" ] ; then exit ; else \$X; fi; done) ; done
+WORD
+	chgrp users /tmp/chain*
+	chmod g+rw /tmp/chain*
+}
+# del
+if ! testing && route -n | grep $rtcf ; then
+	route del -net $cf0 gw 0.0.0.0 dev eth0
+	route del -net $cf0 gw $rtcf dev eth0
+fi
+# up
+if ! ping -n $rth0 -c1 ; then
+	echo "Failed to ping $rth0!"
+	route -n
+	if [	"y" == $(prompt "Try DHCP (rather than configure)?" "n") ] ; then
+		dhclient -i eth0 &
+		if [ "n" == $(prompt "DHCP okay" "n") ] ; then
+			ifconfig eth0
+			exit
+		fi
+		echo "Stopping dhclient."
+		dhclient -r
+		arping $rth0
+		exit
+	else
+		append <<-WORD 
+			ifconfig eth0 $dth0 netmask 255.255.255.0
+		WORD
+		append <<-WORD
+			ping -n $rth0 -c1
+		WORD
+	fi
+fi
+route -n 
+append << WORD
+	route add -net $h0 gw $rth0 dev eth0
+WORD
+append << WORD
+	route add -host $bthub gw $rth0 dev eth0
+WORD
+append << WORD
+	route add default gw $rth0 dev eth0
+WORD
+printout
