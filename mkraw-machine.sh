@@ -16,7 +16,7 @@ function dir2raw() {
 	fi
 	touch $img
 	T=$(du -cms $dir | tail -1 | cut -f1 -dt)
-	size=$(( $T | (1 << 10) + 512 ))
+	size=$(( $(( $T % (1 << 10) )) + $(( ($T >> 10) << 10 )) + 512 ))
 	echo "fs/$T raw/$size"
 	#
 	echo "Zeroing image..."
@@ -82,6 +82,11 @@ function mkmachine() {
 		DIR=$DIR rebuild-machines.sh $NAME 1>&1
 		dir2raw $DIR $IMG
 	fi
+}
+function shrink_raw() {
+	echo "fsck and shrink..."
+	e2fsck -f $1 1>&2
+	resize2fs -M -p $1 1>&2
 }
 #
 if [[ $- == *i* ]] && [ -z "$PKGF" ] ; then

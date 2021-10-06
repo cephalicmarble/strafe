@@ -2,6 +2,7 @@
 #
 STRAFD="/mach/.machines"
 MLAYER="/mach/.journals"
+CHAIND="/mach/.chains"
 export NOBASE=1
 #
 function usage() {
@@ -27,6 +28,8 @@ while [ -n "$1" ] ; do
 		"jlist");&
 		"rlist");&
 		"clist");&
+		"cblist");&
+		"cmlist");&
 		"list");&
 		"mounts");&
 		"journal");&
@@ -44,6 +47,7 @@ while [ -n "$1" ] ; do
 		"prune");&
 		"dismount");&
 		"unmount");&
+		"lift");&
 		"clean")
 			VERBS="$VERBS $1"
 		;;
@@ -83,6 +87,8 @@ function action_verb() {
 		"jlist");&
 		"rlist");&
 		"clist");&
+		"cblist");&
+		"cmlist");&
 		"list");&
 		"mounts");&
 		"journal");&
@@ -92,7 +98,8 @@ function action_verb() {
 		"prune");&
 		"dismount");&
 		"shell");&
-		"unmount")
+		"unmount");&
+		"lift")
 			if [ -z "$PARAMS" ] ; then
 				PARAMS="$PARAMS$TPARAMS"
 			fi
@@ -119,7 +126,7 @@ function action_verb() {
 				if [ -f /mach/machines/$i.raw ] ; then
 					(lxterminal -e "IMG=/mach/machines/$i.raw NOSHL=1 nspawn.sh $i";action_verb stop $PARAMS) & disown
 				else
-					(lxterminal -e "NOIMG=1 NOSHL=1 nspawn.sh $i";action_verb stop $PARAMS) & disown
+					(lxterminal -e "NOSHL=1 nspawn.sh $i";action_verb stop $PARAMS) & disown
 				fi
 			done
 		;;
@@ -137,41 +144,30 @@ function action_verb() {
 		;;
 		"rebuild")
 			pushd /mach/machines
-			MACHINES="${TPARAMS/\ }"
-			if [ -z "$MACHINES" ] ; then
-				for i in *.pkgs ; do
-					d=$(basename *.pkgs)
-					if [ -d $d ] && ! [ -L $d ] && [ $(dirname $(realpath $d)) == "/mach/machines" ] ; then
-						MACHINES="$MACHINES $d"
-					fi
-				done
+			. enumerate-chain.sh
+			F=$(mktemp)
+			T=$(enum_layers ${TPARAMS/ } 2>/dev/null | tee -a $F)
+			if [[ "$T" =~ "Error" ]] ; then
+				echo $T
+				rm $F
+				popd
+				return
 			fi
-			for i in $MACHINES ; do
-				if [ -f ./$i/etc/os-release ] ; then
-					rm $i -fr
+			echo "$(cat $F | grep Missing)"
+			tobuild=$(tac $F | grep -v Missing)
+			for i in $tobuild ; do
+				declare -a namebase
+				namebase=($(echo $i | cut -f1,2 -d: --output-delimiter=\ ))
+				if [ -f "${namebase[0]}.raw" ] && ! zenity --question --text="Image found: rebuild ${namebase[0]}?" --ok-label="Yes, redo it!" --cancel-label="No, keep it!" ; then
+					continue
 				fi
-			done
-			if [[ "$ARGS" =~ "--pacstrap" ]] ; then
-				rm pacstrap -fr/mach/machines/
-				rebuild-machines.sh pacstrap
-			fi
-			if [[ "$ARGS" =~ "--base" ]] ; then
-				rm base -fr
-				rebuild-machines.sh base
-			fi
-			for i in $MACHINES ; do
-				if [[ "$ARGS" =~ "--raw" ]] ; then
-					CMD=mkraw-machine.sh
-					OUTPUT=/mach/machines/$i.raw
-				elif [[ "$ARGS" =~ "--bind" ]] ; then
-					CMD="TMPBIND=1 rebuild-machines.sh"
-					OUTPUT=/mach/machines/$i
+				if [[ "$ARGS" =~ "--debug" ]] ; then
+					echo "rebuild-machines.sh ${namebase[0]}"
 				else
-					CMD="rebuild-machines.sh"
-					OUTPUT=/mach/machines/$i
+					rebuild-machines.sh ${namebase[0]}
 				fi
-				$CMD $i
 			done
+			rm $F
 			popd
 		;;
 		"shell")
@@ -212,7 +208,7 @@ function action_verb() {
 				exit
 			fi
 			if [ -L "$(realpath $MACHL)/flags/watchdog" ] ; then
-				echo 2 > $(realpath $(realpath $MACHL)/flags/watchdog)
+				echo 2 > $(lnls $(realpath $MACHL)/flags/watchdog)
 			fi
 			true
 		;;
@@ -231,9 +227,9 @@ function action_verb() {
 		;;
 		"jlist")
 			if [ -n "$PARAMS" ] ; then
-				find $(realpath /mach/.journals) -type d -name upper | cut -f4,5,6,7,8 -d/ | grep $PARAMS
+				find $(lnls /mach/.journals) -type d -name upper | cut -f4,5,6,7,8 -d/ | grep $PARAMS
 			else
-				find $(realpath /mach/.journals) -type d -name upper | cut -f4,5,6,7,8 -d/
+				find $(lnls /mach/.journals) -type d -name upper | cut -f4,5,6,7,8 -d/
 			fi
 			true
 		;;
@@ -250,6 +246,22 @@ function action_verb() {
 				find $MLAYER/chains -maxdepth 3 -type d -name upper | grep $PARAMS
 			else
 				find $MLAYER/chains -maxdepth 3 -type d -name upper
+			fi
+			true			
+		;;
+		"cblist")
+			if [ -n "$PARAMS" ] ; then
+				find $CHAIND/$PARAMS -maxdepth 3 -type d -name bind
+			else
+				find $CHAIND -maxdepth 4 -type d -name bind
+			fi
+			true			
+		;;
+		"cmlist")
+			if [ -n "$PARAMS" ] ; then
+				find $CHAIND/$PARAMS -maxdepth 1 -type d -name mounts
+			else
+				find $CHAIND -maxdepth 2 -type d -name mounts
 			fi
 			true			
 		;;
@@ -271,15 +283,15 @@ function action_verb() {
 		;;
 		"journal")
 			DIR=$(action_verb jlist $TPARAMS | tail -1)
-			shift 2
-			journalctl -xe -D $(realpath /mach/.journals)/$DIR/var/log/journal/ $TPARAMS
+			journalctl -xe -D $MLAYER/$DIR/var/log/journal/
 		;;
 		"system")
-			DIR=$(realpath $(action_verb list $TPARAMS) | head -1)
-			shift 2
+			DIR=$(lnls $(action_verb rlist $PARAMS | head -1))
 			systemctl --root=$DIR/machine $TPARAMS
 		;;
 		"ip")
+			exit
+			# use machinectl
 			MACHL=$(find /mach/.machines/run/ -maxdepth 1 -name "*$PARAMS*")
 			if [ -f $MACHL/world ] ; then
 				. $MACHL/world
@@ -321,7 +333,6 @@ function action_verb() {
 			if ! [[ "$ARGS" =~ "--ignore-machinectl" ]] ; then
 				M=$(machinectl list)
 			fi
-			MM=
 			for i in $(action_verb rlist $PARAMS) ; do
 				MACH=$(echo $i | cut -f5,6,7 -d/ --output-delimiter=-)
 				if ! [[ "$ARGS" =~ "--ignore-machinectl" ]] ; then
@@ -329,15 +340,19 @@ function action_verb() {
 						continue
 					fi
 				fi
-				echo $i
-				if [ ! -r $(realpath $i) ] ; then
+				l=$(lnls $i)
+				echo "$i -> $l"
+				if [ "$i" == "$l" ] ; then
+					continue
+				fi
+				if [ ! -r "$l" ] ; then
 					unlink $i
 				else
-					find $(realpath $i) -type f -exec rm {} \;
-					find $(realpath $i) -type d -exec rmdir {} \;
+					echo "now looking in $l"
+					#find $l -type f -exec rm {} \;
+					#find $l -type d -exec rmdir {} \;
 					unlink $i
 				fi
-				MM="$MM $M"
 				if [ 0 -lt $(action_verb dismount $MACH | wc -l) ] ; then
 					action_verb dismount $MACH
 				fi
@@ -350,6 +365,17 @@ function action_verb() {
 			echo $BINDDIR
 			umount -R $BINDDIR
 			true
+		;;
+		"lift")
+			CHAIN=${PARAMS/ }
+			if [ -n "$CHAIN" ] ; then
+				find $CHAIND/$CHAIN -name bind   -exec umount -R {} \;
+				find $CHAIND/$CHAIN -name mounts -exec umount -R {} \;
+				rm -fr $CHAIND/$CHAIN
+				if [[ "$ARGS" =~ "--journals" ]] ; then
+					rm -fr $MLAYER/chains/$CHAIN
+				fi
+			fi
 		;;
 		"dismount")
 			#TIMESTAMP=$(echo $(dirname $M) | cut -f7)

@@ -1,6 +1,7 @@
 #!/bin/sh
 export STRAFD="/mach/.machines"
 export MLAYER="/mach/.journals"
+CHAIND="/mach/.chains"
 if [ -z "$NOSHL" ] ; then
 	exec lxterminal -e "/bin/bash -i -c 'NOSHA=\"$NOSHA\" NOGPG=\"$NOGPG\" NOEPH=\"$NOEPH\" NOIMG=\"$NOIMG\" NOSHL=1 $0 $@'"
 	exit
@@ -146,10 +147,11 @@ function onexit() {
 		for i in $COMMANDS ; do killcmd $(rtcmd "$i") ; done
 		# here copy work away
 # strafe stop mprune mounts dismount mounts clean $MACHNAME
-		echo "strafe list"
-		strafe list
-		echo "strafe mounts"
-		strafe mounts
+		if [ -n "$CHAIN" ] ; then
+			find $CHAIND/$CHAIN -name bind   -exec umount -R {} \;
+			find $CHAIND/$CHAIN -name mounts -exec umount -R {} \;
+			rm -fr $CHAIND/$CHAIN
+		fi
 		exit
 	fi
 }
@@ -202,6 +204,7 @@ function multimedia_binds() {
 	BINDS=""
 	for i in $(ls /dev/char/{14,81,116,189}* 2>/dev/null | P=1 clean | RP=1 readloop echo) ; do BINDS="$BINDS --bind=$i" ; done
 	for i in $(ls /dev/char/{14,81,116,189}* 2>/dev/null | P=1 clean | readloop echo) ; do BINDS="$BINDS --bind=$i" ; done
+	for i in $(ls /dev/video* 2>/dev/null | P=1 clean | readloop echo); do BINDS="$BINDS --bind-ro=$i" ; done
 	echo $(echo "$BINDS" | sed -e 's/:/\\:/g')
 }
 function overlay_binds() {
@@ -330,6 +333,16 @@ BIND="--bind-ro=$TMPDIR/thing.sh:/etc/profile.d/towel.sh $BIND"
 ARGS="--hostname=$FUNC --network-bridge=br0 --drop-capability=CAP_AUDIT_WRITE $@"
 # nameif the internet is made of cats, of what material is ramsgate constructed?
 export MACHINE=$FUNC-$MACH
+#function machip() {
+#	NETD=/mach/machines/base/etc/systemd/network
+#	Host=$(find -L $STRAFD -type f -name hostname-$FUNC -or -name hostname-$MACH -exec cat {} \;)
+#	File=$(grep Host=$Host $NETD -r | cut -f1 -d:)
+#	if [ -z "$File" ] ; then
+#		echo $(strafe ip ${FUNCVER/-*}-$MACH)
+#		return
+#	fi
+#	grep Address $File -r | cut -f2 -d= | cut -f1 -d/ | head -1
+#}
 # hostname
 HOSTNAME=$TMPDIR/hostname-$MACHINE
 addfile $HOSTNAME
@@ -347,10 +360,9 @@ export MACH=$MACH
 export HOSTNAME=$FUNC
 export MACHNAME=$MACHNAME
 export ACCT=$ACCT
-export MACHIP=$(machip $MACHNAME)
 EOF
 #
-ARGS="$ARGS -b -M $MACHNAME"
+ARGS="$ARGS -b -M $MACHNAME --private-network --network-veth"
 BIND="--bind-ro=$HOSTNAME:/etc/hostname $BIND"
 #BIND="$BIND --bind=/xpra/$MACH"
 # image
@@ -401,100 +413,24 @@ else
 		ARGS="$ARGS --ephemeral"
 		MACHDIR=$MACH
 	else
-		# mount points
-		BINDDIR=$TMPDIR/bind		
-		LOWER=$BINDDIR/lower
-		LAYER=$MLAYER/$NICKNAME/layer
-		MACHDIR=$BINDDIR/machine
-		SCRATCHDIR=$BINDDIR/runtime
-		UPPER=$LAYER/upper
-		WORK=$LAYER/work
-		DOCNAME=$NICKNAME
-		mkdir $BINDDIR
-		mkdir $LOWER
-		mkdir $MACHDIR
-		mkdir -p $UPPER
-		mkdir -p $WORK
-		SYSTEMD=/usr/lib/systemd/system
-		# 
-		echo "writing bind mount..."
-		BINDMOUNT=$SYSTEMD/$(echo $BINDDIR | tr '/' '-' | sed -e 's/^-//').mount
-cat << EOF > $BINDMOUNT
-[Unit]
-Description=$DOCNAME bind mount
-ConditionPathIsMountPoint=/mach
-ConditionPathIsDirectory=$TMPDIR
-ConditionPathIsSymbolicLink=!$BINDDIR
-DefaultDependencies=no
-Conflicts=umount.target
-
-[Mount]
-What=tmpfs
-Where=$BINDDIR
-Type=tmpfs
-EOF
+		. chain-functions.sh
+		CHAIN=$(chainmangle $(basename $0)-$NICKNAME)
+		. enumerate-chain.sh
+		CHAIN="$CHAIN" init_chain
 		#
-		echo "writing raw machine mount..."
-		LOWERMOUNT=$SYSTEMD/$(echo $LOWER | tr '/' '-' | sed -e 's/^-//').mount
-cat << EOF > $LOWERMOUNT
-[Unit]
-Description=$DOCNAME lower mount
-ConditionPathIsMountPoint=/mach
-ConditionPathIsDirectory=$TMPDIR
-ConditionPathIsSymbolicLink=!$LOWER
-DefaultDependencies=no
-Conflicts=umount.target
-
-[Mount]
-What=/mach/machines/$MACH.raw
-Where=$LOWER
-Type=ext4
-Options=loop
-EOF
-		#
-		echo "writing runtime tmpfs mount..."
-		RUNTIMEMOUNT=$SYSTEMD/$(echo $SCRATCHDIR | tr '/' '-' | sed -e 's/^-//').mount
-cat << EOF > $RUNTIMEMOUNT
-[Unit]
-Description=$DOCNAME runtime mount
-ConditionPathIsMountPoint=/mach
-ConditionPathIsDirectory=$TMPDIR
-ConditionPathIsSymbolicLink=!$SCRATCHDIR
-DefaultDependencies=no
-Conflicts=umount.target
-
-[Mount]
-What=tmpfs
-Where=$SCRATCHDIR
-Type=tmpfs
-EOF
-		#
-		echo "writing overlay mount service..."
-		MACHDIRMOUNT=$SYSTEMD/$(echo $MACHDIR | tr '/' '-' | sed -e 's/^-//').mount
-cat << EOF > $MACHDIRMOUNT
-[Unit]
-Description=$DOCNAME machine mount
-ConditionPathIsMountPoint=/mach
-ConditionPathIsDirectory=$TMPDIR
-ConditionPathIsSymbolicLink=!$MACHDIR
-DefaultDependencies=no
-Conflicts=umount.target
-
-[Mount]
-What=$SCRATCHDIR
-Where=$MACHDIR
-Type=overlay
-Options=lowerdir=$LOWER,upperdir=$UPPER,workdir=$WORK
-EOF
-		#
-		echo "reloading systemd..."
-		systemctl daemon-reload
-		#
-		echo "starting overlay service..."
-		systemctl start $(basename $BINDMOUNT)
-		systemctl start $(basename $LOWERMOUNT)
-		systemctl start $(basename $RUNTIMEMOUNT)
-		systemctl start $(basename $MACHDIRMOUNT)
+		if [ -f /mach/machines/$MACH.pkgs ] ; then
+			layers=$(enum_layers $MACH 2>/dev/null)
+			if [[ "$layers" =~ "Missing:" ]] ; then
+				echo "Need to build... $(echo $layers | grep Missing)"
+				onexit dependency
+			fi
+			LAYERNAME=$(echo $NICKNAME | cut -f1 -d/).$(mktemp -u --tmpdir=/ | sed -e 's/\/tmp.//')
+			chain $LAYERNAME $layers 1>&2
+			MACHDIR=/mach/.chains/$CHAIN/mounts/$LAYERNAME/bind/overlay
+		else
+			echo "Panic no overlay!"
+			onexit panic
+		fi
 	fi
 fi
 #

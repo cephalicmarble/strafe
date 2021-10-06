@@ -105,13 +105,3 @@ function shiftname() {
 	export MACHL=$(find /mach/.machines/run/ -maxdepth 1 -name $1 -or -name $1\* -or -name \*-$1-\*)
 	echo $MACHL
 }
-function machip() {
-	NETD=/mach/machines/base/etc/systemd/network
-	Host=$(find -L $STRAFD -type f -name hostname-$FUNC -or -name hostname-$MACH -exec cat {} \;)
-	File=$(grep Host=$Host $NETD -r | cut -f1 -d:)
-	if [ -z "$File" ] ; then
-		echo $(strafe ip ${FUNCVER/-*}-$MACH)
-		return
-	fi
-	grep Address $File -r | cut -f2 -d= | cut -f1 -d/ | head -1
-}

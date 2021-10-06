@@ -24,7 +24,8 @@ function sleeper() {
 	yes y | sudo strafe stop-all mprune prune clean
 	sudo network-stop
 	sudo -k
-	lxqt-leave --suspend
+	for i in $(cat /proc/acpi/wakeup | grep enabled | cut -f1 -d\ ) ; do echo $i > /proc/acpi/wakeup ; done
+	systemctl hibernate
 	) & disown
 }
 

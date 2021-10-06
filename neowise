@@ -1,0 +1,66 @@
+#!/bin/sh
+T=1
+SINK=
+OUT=$(mktemp -u)
+IN=$(mktemp -u)
+function stop() {
+	kill %1
+	kill %2
+	killall bluetoothctl
+	unlink $IN
+	unlink $OUT
+}
+trap stop KILL TERM ERR EXIT
+declare -a cmds;
+cmds=(
+	"power off"
+	"power on"
+	"agent on"
+	 #"remove $SINK"
+	"--timeout 60 scan on"
+	#"trust $SINK"
+	 #"pair $SINK"
+	#"cancel-pairing $SINK"
+	#"remove $SINK"
+	#"--timeout 12 scan on"
+	#"scan off"
+	#"--timeout 5 pair $INK"
+	 #"connect $SINK"
+	"scan off"
+	 #"info $SINK"
+	 #"connect $SINK"
+	 #"info $SINK"
+	"quit"
+)
+sudo su root -c 'systemctl restart bluetooth'
+mkfifo $OUT
+mkfifo $IN
+tail -f $IN | bluetoothctl > $OUT & disown
+cat $OUT & disown
+TIMEOUT=1
+CMD=""
+cmd=""
+function commander () {
+	cmd=${cmds[$i]}
+	if [[ $cmd =~ "timeout" ]] ; then
+		TIMEOUT=$(echo $cmd | cut -f2 -d\ )
+		CMD=$(echo $cmd | cut -f3-4 -d\ )
+	else
+		TIMEOUT=$T
+		CMD=$cmd
+	fi
+}
+ONCE=0
+for i in ${!cmds[*]} ; do
+	commander $i	
+	echo "$CMD : $TIMEOUT"
+	if [[ $ONCE -eq 0 ]] ; then
+		ONCE=1
+		echo -e "$CMD\n" > $IN
+		tail -f $IN | bluetoothctl & disown > $OUT
+	else
+	  	echo -e "$CMD\n" > $IN
+	fi
+	sleep $TIMEOUT
+done
+
