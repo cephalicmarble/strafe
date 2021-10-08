@@ -10,7 +10,7 @@ if [ $GITVER == $PKGVER ] ; then
 fi
 su amsc -c "makepkg -s"
 cp $PKGS{,.bak}
-sed -i -e "s/\/usr\/src\/google-chrome.*\.zst/$(ls $PWD/*.zst -t | head -1)/" $PKGS
+sed -i -e "s/\/usr\/src\/google-chrome.*\.zst/$(find $(pwd) -newer $(pwd)/PKGBUILD -name \*.zst)/" $PKGS
 popd
-rebuild-machines.sh browser pkgs
+strafe rebuild browser
 popd

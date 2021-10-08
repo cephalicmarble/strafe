@@ -330,6 +330,10 @@ function prepare_machine() {
 }
 # rebuild-machines
 function main() {
+	. chain-functions.sh
+	CHAIN=$(chainmangle $(basename $0)-$TARGET)
+	find /mach/.chains/$CHAIN -name bind   -exec umount -R {} \;
+	find /mach/.chains/$CHAIN -name mounts -exec umount -R {} \;
 	echo "rebuild-machines.sh#main" 1>&2
 	SELINUX=0 
 	for i in $@ ; do
@@ -354,8 +358,6 @@ function main() {
 		fi
 		if [ -z "$DIR" ] ; then	
 			if is_pkgf $PKGF ; then
-				. chain-functions.sh
-				CHAIN=$(chainmangle $(basename $0)-$TARGET)
 				CHAIN="$CHAIN" init_chain
 				flattenfiles --cakefile --mountfile 
 				DIR=/tmp/$CHAIN

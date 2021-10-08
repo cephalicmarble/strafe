@@ -158,7 +158,7 @@ function action_verb() {
 			for i in $tobuild ; do
 				declare -a namebase
 				namebase=($(echo $i | cut -f1,2 -d: --output-delimiter=\ ))
-				if [ -f "${namebase[0]}.raw" ] && ! zenity --question --text="Image found: rebuild ${namebase[0]}?" --ok-label="Yes, redo it!" --cancel-label="No, keep it!" ; then
+				if [ -f "${namebase[0]}.raw" ] && ! zenity --question --text="Image found: ${namebase[0]}.raw. Rebuild it?" --ok-label="Yes, redo it!" --cancel-label="No, keep it!" ; then
 					continue
 				fi
 				if [[ "$ARGS" =~ "--debug" ]] ; then
