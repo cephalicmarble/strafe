@@ -25,7 +25,7 @@ function sleeper() {
 	sudo network-stop
 	sudo -k
 	for i in $(cat /proc/acpi/wakeup | grep enabled | cut -f1 -d\ ) ; do echo $i > /proc/acpi/wakeup ; done
-	systemctl hibernate
+	systemctl suspend 
 	) & disown
 }
 

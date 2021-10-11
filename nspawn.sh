@@ -146,12 +146,12 @@ function onexit() {
 		for i in $ONEXIT ; do CMD=$(rtcmd "$i") ; $CMD ; done
 		for i in $COMMANDS ; do killcmd $(rtcmd "$i") ; done
 		# here copy work away
-# strafe stop mprune mounts dismount mounts clean $MACHNAME
 		if [ -n "$CHAIN" ] ; then
 			find $CHAIND/$CHAIN -name bind   -exec umount -R {} \;
 			find $CHAIND/$CHAIN -name mounts -exec umount -R {} \;
 			rm -fr $CHAIND/$CHAIN
 		fi
+		yes y | strafe prune clean --ignore-machinectl $MACHNAME
 		exit
 	fi
 }
