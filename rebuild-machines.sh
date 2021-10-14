@@ -99,18 +99,19 @@ EOF
 		else
 			pacman="lf pacman"
 		fi
-		if [ -n "${Synchronizable/.}" ] ; then
-			if ! $pacman -S $Synchronizable ; then
-				false
-				return
-			fi
-		fi
-		if [ -n "${Updateable/.}" ] ; then
-			if ! $pacman -U $Updateable ; then
-				false
-				return
-			fi
-		fi
+#		if [ -n "${Synchronizable/.}" ] ; then
+#			if ! $pacman -S $Synchronizable ; then
+#				false
+#				return
+#			fi
+#		fi
+#		if [ -n "${Updateable/.}" ] ; then
+#			if ! $pacman -U $Updateable ; then
+#				false
+#				return
+#			fi
+#		fi
+		DIR="$DIR" packages_impl
 		true
 		return
 	fi
