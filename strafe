@@ -360,10 +360,9 @@ function action_verb() {
 			true
 		;;
 		"unmount")
-			NICKNAME=${PARAMS/ }
-			BINDDIR=$STRAFD/mounts/$NICKNAME/bind
-			echo $BINDDIR
-			umount -R $BINDDIR
+			NICKNAME="*${PARAMS/ }*"
+			find /mach/.chains/$NICKNAME -name bind   -exec /bin/umount -R {} \;
+			find /mach/.chains/$NICKNAME -name mounts -exec /bin/umount -R {} \;
 			true
 		;;
 		"lift")

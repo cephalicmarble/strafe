@@ -35,5 +35,6 @@ function resumer() {
 	read -t2 -iN -p "restart network [N/y] ?" Y
 	if [ "$Y" == "y" ] || [ "$Y" == "Y" ] ; then
 		sudo network-restart
+		sudo su -c "DOWORK=1 bridge.sh"
 	fi
 }
