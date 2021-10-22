@@ -136,5 +136,7 @@ function networking() {
 	else
 		mkdir -p $mach/etc/systemd/network
 	fi
-	rsync $MACHINEBASE/network/*.network $mach/etc/systemd/network/
+	if [ -z "$BOOTSTRAP" ] ; then
+		rsync $MACHINEBASE/network/*.network $mach/etc/systemd/network/
+	fi
 }

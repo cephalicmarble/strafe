@@ -184,7 +184,7 @@ function dospawn() {
 			sleep 1
 		done
 		if [[ "$(cat /usr/src/machine-base/etc/bath-exec)" =~ "$EXEC" ]] ; then
-			(strafe shell $MACHNAME /usr/scripts/bath-wrapper) &
+			(strafe shell ${ACCT}@ ${MACHNAME} /usr/scripts/bath-wrapper) &
 		fi
 	fi
 }
@@ -204,7 +204,7 @@ function multimedia_binds() {
 	BINDS=""
 	for i in $(ls /dev/char/{14,81,116,189}* 2>/dev/null | P=1 clean | RP=1 readloop echo) ; do BINDS="$BINDS --bind=$i" ; done
 	for i in $(ls /dev/char/{14,81,116,189}* 2>/dev/null | P=1 clean | readloop echo) ; do BINDS="$BINDS --bind=$i" ; done
-	for i in $(ls /dev/video* 2>/dev/null | P=1 clean | readloop echo); do BINDS="$BINDS --bind-ro=$i" ; done
+	for i in $(ls /dev/video* 2>/dev/null | P=1 clean | readloop echo); do BINDS="$BINDS --bind=$i" ; done
 	echo $(echo "$BINDS" | sed -e 's/:/\\:/g')
 }
 function overlay_binds() {

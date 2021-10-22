@@ -171,7 +171,7 @@ function action_verb() {
 			popd
 		;;
 		"shell")
-			if [ -z "$PARAMS" ] ; then
+			if [ -z "$TPARAMS" ] ; then
 				usage
 			fi
 			SEEN=0
@@ -179,11 +179,19 @@ function action_verb() {
 				if [ "$SEEN" == 1 ] ; then
 					CMD="$CMD $i"
 				else
-					PRM="$i"
-					SEEN=1
+					if [[ "$i" =~ "@" ]] ; then
+						ACCT=${i/@*}
+					else
+						PRM="$i"
+						SEEN=1
+					fi
 				fi
 			done
-			machinectl shell $(sudo strafe mlist $PRM) $CMD
+			if [ -n "$ACCT" ] ; then
+				machinectl shell ${ACCT}@$(sudo strafe mlist $PRM) $CMD
+			else
+				machinectl shell $(sudo strafe mlist $PRM) $CMD
+			fi
 		;;
 		"stop-all")
 			for R in $(action_verb rlist) ; do

@@ -285,13 +285,15 @@ function call_machine() {
 	#	fi
 	#fi
 	#scripts
+	. machine-functions.sh
 	if [ -n "$BOOTSTRAP" ] ; then
+		echo "Removing systemd networking stubs..."
+		networking
 		true
 		echo "Avoiding machine functions as bootstrap image."
 		return
 	fi
 	# close on shell definition
-	. machine-functions.sh
 	echo "PATH= DIR=\"$mach\" TARGET=\"$TARGET\" PKGF=\"$PKGF\" init_machine"
 	DIR="$mach" TARGET="$TARGET" PKGF="$PKGF" init_machine
 }
