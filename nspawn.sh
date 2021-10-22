@@ -183,6 +183,7 @@ function dospawn() {
 		while ! [ -r $READY ] ; do 
 			sleep 1
 		done
+		sleep 1
 		if [[ "$(cat /usr/src/machine-base/etc/bath-exec)" =~ "$EXEC" ]] ; then
 			(strafe shell ${ACCT}@ ${MACHNAME} /usr/scripts/bath-wrapper) &
 		fi
