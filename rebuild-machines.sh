@@ -91,7 +91,7 @@ EOF
 			if ! debug ; then
 				pacstrap -c -M -G $DIR base
 			fi
-			BOOTSTRAP=1
+			export BOOTSTRAP=1
 			#rsync -q /etc/pacman.d/mirrorlist $DIR/etc/pacman.d/mirrorlist
 		fi
 		if ! debug ; then
@@ -286,9 +286,11 @@ function call_machine() {
 	#fi
 	#scripts
 	. machine-functions.sh
-	if [ -n "$BOOTSTRAP" ] ; then
+	if ! [[ "$(file ${PKGF} | cut -f2 -d:)" =~ "POSIX shell script" ]]; then
 		echo "Removing systemd networking stubs..."
 		networking
+		echo "Transferring userdb..."
+		userdb
 		true
 		echo "Avoiding machine functions as bootstrap image."
 		return

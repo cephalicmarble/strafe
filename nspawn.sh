@@ -227,8 +227,8 @@ addfile $TMPDIR/display.sh
 cat << EOF > $TMPDIR/display.sh 
 export DISPLAY="$DISPLAY"
 EOF
-DBUS="--bind-ro=/run/dbus/system_bus_socket"
-X11="--bind-ro=/tmp/.X11-unix --bind-ro=$TMPDIR/display.sh:/etc/profile.d/display.sh"
+export DBUS="--bind-ro=/run/dbus/system_bus_socket"
+export X11="--bind-ro=/tmp/.X11-unix --bind-ro=$TMPDIR/display.sh:/etc/profile.d/display.sh"
 # functionality
 case "$FUNC" in
 	(ide)
@@ -320,7 +320,7 @@ cat << EOF > $TMPDIR/thing.sh
 export ACCT="$ACCT"
 export EXEC="$EXEC"
 export ARGS=$ARGS
-export PIDFILE="/home/$ACCT/wrapper.pid"
+export PIDFILE="/tmp/bath-wrapper.pid"
 export NO_AT_BRIDGE=1
 export PULSE_SERVER=unix:/tmp/pulse.socket
 export QT_GRAPHICSSYSTEM=native

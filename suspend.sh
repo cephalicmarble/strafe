@@ -7,7 +7,7 @@ fi
 if [ -f $LOCKF ] ; then
 	rm $LOCKF				#for sleeper
 fi
-rm /run/faillock/$USER		#for pam
-sleeper			   			#to suspend
-sudo lxlocker 				#invoke pam
-sleeper 60				    #sleepover then suspend
+if [ -w /run/faillock/$USER ] ; then
+	rm /run/faillock/$USER		#for pam
+fi
+(N=;while sleeper $N ; do N=$(( 0$N + 1 )) ; sleep 10 ; done) & disown

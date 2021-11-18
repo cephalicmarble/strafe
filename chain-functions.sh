@@ -16,7 +16,26 @@ function write_mount_file() {
 	WHAT=$1
 	TYPE=$2
 	WHERE=$3
-	MOUNTFILE=$SYSTEMD/$(echo $WHERE | tr '/' '-' | sed -e 's/^-//').mount
+	OPTIONS=""
+	WHERETR=$(echo $WHERE | tr '/' '-' | sed -e 's/^-//')
+	if [ "$#" -gt 3 ] ; then 
+		shift 3
+		OPTIONS="Options=$@"
+	fi
+	# RO=1 write_mount...(q.v.) protects lower filesystem image
+	if [ -n "$RO" ] ; then
+		if [ "$#" -gt 3 ] ; then 
+			OPTIONS="$OPTIONS,ro"
+		else
+			OPTIONS="Options=ro"
+		fi
+	fi
+	#if [[ "$OPTIONS" =~ "=ro" ]] || [[ "$OPTIONS" =~ ",ro" ]] ; then	
+	#	T=$(dirname $WHERE)/readonlyfs
+	#	cp $WHAT $T
+	#	WHAT="$T"
+	#fi
+	MOUNTFILE=$SYSTEMD/$WHERETR.mount
 cat << EOF > $MOUNTFILE
 [Unit]
 Description=$(basename $MOUNTFILE) for $WHAT
@@ -31,9 +50,8 @@ What=$WHAT
 Where=$WHERE
 Type=$TYPE
 EOF
-	if [ "$#" -gt 3 ] ; then 
-		shift 3
-		echo Options=$@ >> $MOUNTFILE
+	if [ -n "$OPTIONS" ] ; then
+		echo $OPTIONS >> $MOUNTFILE
 	fi
 	# record for later deletion
 	spinlock $MOUNTF "addmount $MOUNTFILE"
@@ -100,11 +118,11 @@ function chain() { # name [highest, lower, ...] [--options]
 		echo "Process lower $name:$filesystem..."
 		dev=$(realpath $filesystem)
 		if [ -b $dev ] ; then
-			write_mount_file $dev auto ${LOWER}${IDX} >> $TMOUNTF
+			RO=1 write_mount_file $dev auto ${LOWER}${IDX} >> $TMOUNTF
 		elif [ -f $dev ] && [[ "$(file $dev)" =~ "filesystem data" ]] ; then
-			write_mount_file $dev auto ${LOWER}${IDX} loop >> $TMOUNTF
+			RO=1 write_mount_file $dev auto ${LOWER}${IDX} loop >> $TMOUNTF
 		elif [ -d $dev ] ; then
-			write_mount_file $dev auto ${LOWER}${IDX} bind >> $TMOUNTF
+			RO=1 write_mount_file $dev auto ${LOWER}${IDX} bind >> $TMOUNTF
 		else
 			echo "Unknown filesystem object: $dev"
 			false

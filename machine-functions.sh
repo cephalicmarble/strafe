@@ -8,16 +8,6 @@ function rig() {
 	ln -s /usr/lib/systemd/$type/$unit $DIR/etc/systemd/$type/$want
 }
 #
-function doctor_ns() {
-	if [ "$mach/etc/$1" != "/etc/$1" ] ; then
-		T=$(mktemp)
-		cat $mach/etc/$1 | grep -v -E '^(amsc|git|wrt|ceph|rpc|postfix|ntp)' > $T
-		mv $T $mach/etc/$1
-	fi
-	chmod 0644 $mach/etc/$1
-	chown root $mach/etc/$1
-}
-#
 function init_machine() {
 	mach="$DIR"
 	. $PKGF
@@ -67,30 +57,49 @@ function userdb() {
 	for i in user exec ; do 
 		cp /usr/src/machine-base/etc/bath-$i $mach/etc/
 	done
+	# bath-user[i] from /etc/passwd to $mach/etc/passwd
+	# bath-user[i] from /etc/group to $mach/etc/group
+	# doctor_ns shadow and gshadow
 	if [ "/etc/passwd" != "$mach/etc/passwd" ] ; then
 		echo "disallow non-useful shells..." 1>&2
-		T=$(mktemp)
-		cat /etc/passwd | sed -r -e 's/\/bin\/bash/\/bin\/nologin/' -e 's/\/root:\/bin\/nologin/\/root:\/bin\/bash/' > $T
-		mv $T $mach/etc/passwd
+		
+		# add extras nologin  (include our (u|r)bac from host)
+		EEXPR="^($(cat $mach/etc/passwd | grep -E '^[a-z]' | cut -f1 -d: | clean | tr ',' '|')xyzzy)"
+		cat /etc/passwd | grep -v -E $EEXPR | sed -r -e 's/\/bin\/bash/\/bin\/nologin/' >> $mach/etc/passwd
+		# make some say hello 
 		echo "permit useful shells..." 1>&2
 		for i in $(cat $mach/etc/bath-user) ; do
-			sed -re "s/:\/bin\/nologin/:\/bin\/bash/" -i $mach/etc/passwd
+			if ! usermod -R $(realpath $mach) -s /bin/bash $i ; then
+				useradd -R $(realpath $mach) -s /bin/bash -d /home/$i $i
+			fi
 			mkdir -p $mach/home/$i
 			mkdir -p $mach/root/mnt/$i
 		done
-		echo "fix our transferred passwd, shadow and group databases..." 1>&2
-		doctor_ns passwd
-		doctor_ns shadow
-		doctor_ns group		
-		doctor_ns gshadow
+		
+		# bring over the groups removing at least video group. (systemd-sysusers bug)
+		EEXPR="^($(cat $mach/etc/group | grep -E '^[a-z]' | cut -f1 -d: | clean | tr ',' '|')video)"
+		echo "Thinning out gshadow (disabled)..." 1>&2
+		echo $EEXPR 1>&2
+		#cat /etc/group | grep -v -E $EEXPR >> $mach/etc/group
+		#cat /etc/gshadow | grep -v -E $EEXPR >> $mach/etc/gshadow
+
+		echo "fix our transferred passwd databases..." 1>&2
+		yes y | pwck -R $(realpath $mach)
+
+		echo "fix our transferred group databases..." 1>&2
+		yes y | grpck -R $(realpath $mach)
+		for i in group passwd ; do
+			chmod 0644 $mach/etc/$i
+			chown root $mach/etc/group
+		done
 	fi
-	echo "remove unused group entries..." 1>&2
-	SEDCMD=$(mktemp)
-	for i in amsc git wrt ceph rpc postfix ntp ; do
-		echo "s/$i,*//" >> $SEDCMD
-	done
-	sed -r -f $SEDCMD -i $mach/etc/group
-	rm $SEDCMD
+	#echo "remove unused group entries..." 1>&2
+	#SEDCMD=$(mktemp)
+	#for i in amsc git wrt ceph rpc postfix ntp $(cat /usr/src/machine-base/etc/bath-user) ; do
+	#	echo "s/$i,*//" >> $SEDCMD
+	#done
+	#sed -r -f $SEDCMD -i $mach/etc/group
+	#rm $SEDCMD
 }
 #
 function enable_services() {
@@ -121,6 +130,28 @@ EOF
 	$systemctl enable rc-local
 }
 #
+function enable_service() {
+	if debug ; then
+		echo "${FUNCNAME[0]}"
+		return
+	fi
+	echo "enabling services : $@..." 1>&2
+	systemctl="systemctl --root=$(realpath $mach)"
+	for i in $@ ; do 
+	 	$systemctl enable $i
+	done
+}
+#
+function mariadb_install() {
+	echo "mariadb configuration..." 1>&2
+	cp $MACHINEBASE/etc/my.cnf $(realpath $mach)/etc/my.cnf
+	rsync -q -vlr $MACHINEBASE/etc/my.cnf.d/ $(realpath $mach)/etc/my.cnf.d/
+	echo "enabling mariadb services..." 1>&2
+	rsync -q -vlr $MACHINEBASE/systemd-mariadb/system/ $mach/usr/lib/systemd/system/
+	systemctl="systemctl --root=$(realpath $mach)"
+	$systemctl enable mariadb.service
+}
+#
 function networking() {
 	if debug ; then
 		echo "${FUNCNAME[0]}"
@@ -136,7 +167,5 @@ function networking() {
 	else
 		mkdir -p $mach/etc/systemd/network
 	fi
-	if [ -z "$BOOTSTRAP" ] ; then
-		rsync $MACHINEBASE/network/*.network $mach/etc/systemd/network/
-	fi
+	rsync $MACHINEBASE/network/*.network $mach/etc/systemd/network/
 }
