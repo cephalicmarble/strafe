@@ -43,9 +43,11 @@ function chkbr() {
 	#brctl addif br0 lo
 	#brctl addif br0 eth0
 	lf ifconfig br0 up ${BRIDGEHOST}/${BRIDGENET/*\/}
-	lf brctl show
 	lf ip link set dev br0 up
-	lf ifconfig
+	for i in $(ifconfig -s | grep vb | cut -f1 -d\ ) ; do
+		brctl addif br0 $i
+	done
+	lf brctl show br0
 }
 function chkconf() {
 	for i in $@ ; do
