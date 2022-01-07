@@ -6,7 +6,7 @@ CHAIND="/mach/.chains"
 export NOBASE=1
 #
 function usage() {
-	echo "Usage: $0 (start <machine>|root|rebuild|shell <part-name>|mlist|jlist|rlist|stop-all|stop <part-name>|list|journal|system|ip <part-name>|port <part-name>|mprune|prune|dismount|unmount <nickname>|clean)"
+	echo "Usage: $0 (start <machine>|root|rebuild|mount|shell <part-name>|mlist|jlist|rlist|stop-all|stop <part-name>|list|journal|system|ip <part-name>|port <part-name>|mprune|prune|dismount|unmount <nickname>|clean)"
 	exit
 }
 if [ -z "$1" ] ; then
@@ -39,6 +39,7 @@ while [ -n "$1" ] ; do
 		"start");&
 		"root");&
 		"rebuild");&
+		"mount");&
 		"shell");&
 		"stop-all");&
 		"stop");&
@@ -107,6 +108,7 @@ function action_verb() {
 		"clean");&
 		"stop-all");&
 		"rebuild");&
+		"mount");&
 		"system");&
 		"journal");&
 		"stop_one")
@@ -122,11 +124,17 @@ function action_verb() {
 				usage
 			fi
 			pushd /mach/machines
+			if [[ $PARAMS =~ "nobath" ]] ; then
+				NOBATH=nobath
+			fi
 			for i in $PARAMS ; do
+				if [[ $i =~ "nobath" ]] ; then
+					continue
+				fi
 				if [ -f /mach/machines/$i.raw ] ; then
-					(lxterminal -e "IMG=/mach/machines/$i.raw NOSHL=1 nspawn.sh $i";action_verb stop $PARAMS) & disown
+					(NOBATH=$NOBATH lxterminal -e "IMG=/mach/machines/$i.raw NOSHL=1 nspawn.sh $i";action_verb stop $PARAMS) & disown
 				else
-					(lxterminal -e "NOSHL=1 nspawn.sh $i";action_verb stop $PARAMS) & disown
+					(NOBATH=$NOBATH lxterminal -e "NOSHL=1 nspawn.sh $i";action_verb stop $PARAMS) & disown
 				fi
 			done
 		;;
@@ -146,28 +154,60 @@ function action_verb() {
 			pushd /mach/machines
 			. enumerate-chain.sh
 			F=$(mktemp)
-			T=$(enum_layers ${TPARAMS/ } 2>/dev/null | tee -a $F)
+			T=$(L=1 enum_layers ${TPARAMS/ } 2>/dev/null | tee -a $F)
 			if [[ "$T" =~ "Error" ]] ; then
 				echo $T
 				rm $F
 				popd
 				return
 			fi
-			echo "$(cat $F | grep Missing)"
+			tomachine=$(cat $F | grep -v Missing)
 			tobuild=$(tac $F | grep -v Missing)
-			for i in $tobuild ; do
-				declare -a namebase
-				namebase=($(echo $i | cut -f1,2 -d: --output-delimiter=\ ))
-				if [ -f "${namebase[0]}.raw" ] && ! zenity --question --text="Image found: ${namebase[0]}.raw. Rebuild it?" --ok-label="Yes, redo it!" --cancel-label="No, keep it!" ; then
-					continue
-				fi
-				if [[ "$ARGS" =~ "--debug" ]] ; then
-					echo "rebuild-machines.sh ${namebase[0]}"
-				else
-					rebuild-machines.sh ${namebase[0]}
-				fi
-			done
+			if [[ "$ARGS" =~ "--only-machine" ]] ; then
+				echo "$tomachine"
+				for i in $tomachine ; do
+					declare -a namebase
+					namebase=($(echo $i | cut -f1,2 -d: --output-delimiter=\ ))
+					if [ -f "${namebase[0]}.raw" ] && ! zenity --question --text="Image found: ${namebase[0]}.raw. Rebuild it?" --ok-label="Yes, redo it!" --cancel-label="No, keep it!" ; then
+						break
+					fi
+					if [[ "$ARGS" =~ "--debug" ]] ; then
+						echo "rebuild-machines.sh --only-machine ${namebase[0]}"
+					else
+						rebuild-machines.sh --only-machine ${namebase[0]}
+					fi
+					break
+				done
+			else
+				echo "$tobuild"
+				for i in $tobuild ; do
+					declare -a namebase
+					namebase=($(echo $i | cut -f1,2 -d: --output-delimiter=\ ))
+					if [ -f "${namebase[0]}.raw" ] && ! zenity --question --text="Image found: ${namebase[0]}.raw. Rebuild it?" --ok-label="Yes, redo it!" --cancel-label="No, keep it!" ; then
+						continue
+					fi
+					if [[ "$ARGS" =~ "--debug" ]] ; then
+						echo "rebuild-machines.sh ${namebase[0]}"
+					else
+						rebuild-machines.sh ${namebase[0]}
+					fi
+				done
+			fi
 			rm $F
+			popd
+		;;
+		"mount")
+			pushd /mach/machines
+			. enumerate-chain.sh
+			. chain-functions.sh
+			CHAIN=rootfs init_chain
+			T=$(enum_layers ${TPARAMS/ } 2>/dev/null)
+			if [[ "$T" =~ "Error" ]] ; then
+				echo $T
+				popd
+				return
+			fi
+			chain ${TPARAMS/ } $T
 			popd
 		;;
 		"shell")

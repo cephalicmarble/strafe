@@ -118,12 +118,17 @@ function enable_services() {
 	for i in $(cat $mach/etc/bath-user) ; do
 		$systemctl enable console-getty@$i
 	done	
-	$systemctl enable systemd-resolved
+	#
+	$systemctl disable systemd-resolved
+	rm $(realpath $mach)/etc/resolv.conf
+		
+	#ln -s /run/systemd/resolve/stub-resolv.conf $(realpath $mach)/etc/resolv.conf
+	#
 	$systemctl enable systemd-networkd
 	cat <<-EOF > $mach/etc/rc.local
 		#!/bin/sh
 		find /usr/lib/systemd/network/ -name \*.network -exec rm {} \;
-		echo "nameserver 127.0.0.53" > /etc/resolv.conf
+		echo "nameserver 169.254.0.1" > /etc/resolv.conf
 EOF
 	chmod 0744 $mach/etc/rc.local
 	chown root $mach/etc/rc.local

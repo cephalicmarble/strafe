@@ -146,12 +146,12 @@ function onexit() {
 		for i in $ONEXIT ; do CMD=$(rtcmd "$i") ; $CMD ; done
 		for i in $COMMANDS ; do killcmd $(rtcmd "$i") ; done
 		# here copy work away
-		if [ -n "$CHAIN" ] ; then
-			find $CHAIND/$CHAIN -name bind   -exec umount -R {} \;
-			find $CHAIND/$CHAIN -name mounts -exec umount -R {} \;
-			rm -fr $CHAIND/$CHAIN
-		fi
-		yes y | strafe prune clean --ignore-machinectl $MACHNAME
+		#if [ -n "$CHAIN" ] ; then
+		#	find $CHAIND/$CHAIN -name bind   -exec umount -R {} \;
+		#	find $CHAIND/$CHAIN -name mounts -exec umount -R {} \;
+		#	rm -fr $CHAIND/$CHAIN
+		#fi
+		#yes y | strafe prune clean --ignore-machinectl $MACHNAME
 		exit
 	fi
 }
@@ -184,7 +184,7 @@ function dospawn() {
 			sleep 1
 		done
 		sleep 1
-		if [[ "$(cat /usr/src/machine-base/etc/bath-exec)" =~ "$EXEC" ]] ; then
+		if [[ "$(cat /usr/src/machine-base/etc/bath-exec)" =~ "$EXEC" ]] && [ -z "$NOBATH" ] ; then
 			(strafe shell ${ACCT}@ ${MACHNAME} /usr/scripts/bath-wrapper) &
 		fi
 	fi
@@ -206,6 +206,7 @@ function multimedia_binds() {
 	for i in $(ls /dev/char/{14,81,116,189}* 2>/dev/null | P=1 clean | RP=1 readloop echo) ; do BINDS="$BINDS --bind=$i" ; done
 	for i in $(ls /dev/char/{14,81,116,189}* 2>/dev/null | P=1 clean | readloop echo) ; do BINDS="$BINDS --bind=$i" ; done
 	for i in $(ls /dev/video* 2>/dev/null | P=1 clean | readloop echo); do BINDS="$BINDS --bind=$i" ; done
+	#BINDS="$BINDS --bind=/sys"
 	echo $(echo "$BINDS" | sed -e 's/:/\\:/g')
 }
 function overlay_binds() {
@@ -426,7 +427,10 @@ else
 				onexit dependency
 			fi
 			LAYERNAME=$(echo $NICKNAME | cut -f1 -d/).$(mktemp -u --tmpdir=/ | sed -e 's/\/tmp.//')
-			chain $LAYERNAME $layers 1>&2
+			echo "RO=1 chain $LAYERNAME $layers"
+			if ! RO=1 chain $LAYERNAME $layers ; then
+				onexit chain-failed
+			fi
 			MACHDIR=/mach/.chains/$CHAIN/mounts/$LAYERNAME/bind/overlay
 		else
 			echo "Panic no overlay!"
@@ -434,6 +438,7 @@ else
 		fi
 	fi
 fi
+ARGS="$ARGS --link-journal=try-host --resolv-conf=off"
 #
 echo "systemd-nspawn..."
 dospawn -D $MACHDIR $ARGS $BIND $@

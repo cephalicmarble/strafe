@@ -186,7 +186,7 @@ EOF
 	done
 	#
 	if ! [ -d $CHAIND/$CHAIN/mounts/$TARGET/bind/overlay ] ; then
-		chain $TARGET $CHAINLIST
+		RO=1 chain $TARGET $CHAINLIST
 		echo "Directory -> $DIR"
 		ln -s $CHAIND/$CHAIN/mounts/$TARGET/bind/overlay $DIR
 		if [ -d $DIR/overlay ] ; then
@@ -301,13 +301,31 @@ function call_machine() {
 }
 # main_impl
 function prepare_machine() {
-	if ! DIR="$DIR" TARGET="$TARGET" CHAIN="$CHAIN" PKGF="$PKGF" call_pacstrap ; then		
-		echo "Failed to mount machine. Not making raw image."
-		onexit pacstrap
-	fi	
+	if [ -z "$MACHINEONLY" ] ; then
+		if ! DIR="$DIR" TARGET="$TARGET" CHAIN="$CHAIN" PKGF="$PKGF" call_pacstrap ; then		
+			echo "Failed to mount machine. Not making raw image."
+			onexit pacstrap
+		fi	
+	else
+		raw=/mach/machines/$TARGET.raw
+		TEMPDIR=$(mktemp -d)
+		echo "Mounting raw image at $TEMPDIR..."
+		if ! mount $raw $TEMPDIR ; then
+			echo "Failed to mount. Not renewing config."
+			onexit machinemount
+		fi
+		DIR=$TEMPDIR
+		echo "Renewing config..."
+	fi
+	#
 	if ! TARGET="$TARGET" DIR="$DIR" PKGF="$PKGF" call_machine ; then
 		echo "Failed tuning config. Not making raw image."
 		onexit machine
+	fi
+	if [ -n "$MACHINEONLY" ] ; then
+		umount $TEMPDIR
+		echo "Unmounted machine image."
+		return
 	fi
 	
 	img=/tmp/$(basename $0)-$TARGET.raw
@@ -332,6 +350,7 @@ function prepare_machine() {
 	echo "Done building $TARGET." 1>&2
 	shrink_raw ./$TARGET.raw 1>&2
 	CHAINITEM="$TARGET:$(realpath ./$TARGET.raw)"
+	umount -R $CHAIND/$CHAIN/mounts
 }
 # rebuild-machines
 function main() {
@@ -342,6 +361,9 @@ function main() {
 	echo "rebuild-machines.sh#main" 1>&2
 	SELINUX=0 
 	for i in $@ ; do
+		if [[ "$i" == "--only-machine" ]] ; then
+			MACHINEONLY=1
+		fi
 		if [[ "$i" =~ '--' ]] ; then
 			continue
 		fi

@@ -1,0 +1,21 @@
+#!/bin/sh
+IF=eth0
+. /etc/profile.d/hosts.sh
+. bridge.sh
+setup
+work
+route del default gw
+ping="ping -c1 -W1"
+for ip in $rtangl3 ; do
+	wpa_supplicant -dWext -c/etc/wpa_supplicant.conf -iwlan0 &disown
+	dhclient -i wlan0 2>&1 >/tmp/${ip}.start &
+	ADDR=$(echo $ip | cut -f1-3 -d.).2
+	ifconfig $IF $ADDR
+	sleep 1
+	if $ping $ip && route add default gw $ip ; then break ; fi
+	#killall dhclient
+done
+ifconfig $IF
+default-route.sh
+$ping $tplink 
+$ping $bthub  

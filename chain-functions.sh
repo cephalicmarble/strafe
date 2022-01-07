@@ -22,14 +22,6 @@ function write_mount_file() {
 		shift 3
 		OPTIONS="Options=$@"
 	fi
-	# RO=1 write_mount...(q.v.) protects lower filesystem image
-	if [ -n "$RO" ] ; then
-		if [ "$#" -gt 3 ] ; then 
-			OPTIONS="$OPTIONS,ro"
-		else
-			OPTIONS="Options=ro"
-		fi
-	fi
 	#if [[ "$OPTIONS" =~ "=ro" ]] || [[ "$OPTIONS" =~ ",ro" ]] ; then	
 	#	T=$(dirname $WHERE)/readonlyfs
 	#	cp $WHAT $T
@@ -50,6 +42,9 @@ What=$WHAT
 Where=$WHERE
 Type=$TYPE
 EOF
+#	if ! mkdir $WHERE ; then
+#		echo "$WHERE already existed!"
+#	fi
 	if [ -n "$OPTIONS" ] ; then
 		echo $OPTIONS >> $MOUNTFILE
 	fi
@@ -92,19 +87,23 @@ function init_chain() {
 }
 #
 function chain() { # name [highest, lower, ...] [--options]
-	name="$1"
+	NAME="$1"
 	shift 1
-	if [ -z "$name" ] ; then
+	if [ -z "$CHAINNAME" ] ; then
+		echo "should call init_chain first!"
+		exit
+	fi
+	if [ -z "$NAME" ] ; then
 		echo "Usage: chain <name> [highest, lower, ...] [--options]"
 		return
 	fi
-	binddir=$MNTDIR/$name/bind
+	binddir=$MNTDIR/$NAME/bind
 	LOWER=$binddir/lower
 	MACHDIR=$binddir/overlay
-	UPPER=$LAYER/$name/upper # protective at present HEREIAM
-	WORK=$LAYER/$name/work
-	LMOUNTF=$LAYER/$name/lmountf
-	TMOUNTF=$LAYER/$name/tmountf
+	UPPER=$LAYER/$NAME/upper # protective at present HEREIAM
+	WORK=$LAYER/$NAME/work
+	LMOUNTF=$LAYER/$NAME/lmountf
+	TMOUNTF=$LAYER/$NAME/tmountf
 	mkdir -p $UPPER
 	mkdir -p $WORK
 	touch $LMOUNTF
@@ -117,12 +116,15 @@ function chain() { # name [highest, lower, ...] [--options]
 		filesystem=${args[1]}
 		echo "Process lower $name:$filesystem..."
 		dev=$(realpath $filesystem)
+		if [ -n "$RO" ] ; then
+			OPT=,ro
+		fi
 		if [ -b $dev ] ; then
-			RO=1 write_mount_file $dev auto ${LOWER}${IDX} >> $TMOUNTF
+			write_mount_file $dev auto ${LOWER}${IDX} loud$OPT >> $TMOUNTF
 		elif [ -f $dev ] && [[ "$(file $dev)" =~ "filesystem data" ]] ; then
-			RO=1 write_mount_file $dev auto ${LOWER}${IDX} loop >> $TMOUNTF
+			write_mount_file $dev auto ${LOWER}${IDX} loop$OPT >> $TMOUNTF
 		elif [ -d $dev ] ; then
-			RO=1 write_mount_file $dev auto ${LOWER}${IDX} bind >> $TMOUNTF
+			write_mount_file $dev auto ${LOWER}${IDX} bind$OPT >> $TMOUNTF
 		else
 			echo "Unknown filesystem object: $dev"
 			false
@@ -161,9 +163,8 @@ function chain() { # name [highest, lower, ...] [--options]
 			echo "Starting $(basename $mountfile)..."
 			if ! systemctl start $(basename $mountfile) 1>&2 ; then
 				echo "failed bind mount." 1>&2
-				false
 				removefilesfrom $LMOUNTF
-				return
+				break
 			fi
 		else
 			if ! [ -d $mountfile ] ; then
@@ -171,7 +172,14 @@ function chain() { # name [highest, lower, ...] [--options]
 			fi
 		fi
 	done)
-	echo "chain mount success."
+	
+	if grep $CHAIND/$CHAIN/mounts/$NAME/bind/overlay /proc/mounts >/dev/null ; then 
+		echo "chain mount successful."
+		true
+	else
+		echo "chain mount failed."
+		false
+	fi
 }
 #
 function removefilesfrom() {

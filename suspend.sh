@@ -4,10 +4,15 @@ if [ -n "$(pidof suspend.sh)" ] ; then
 	exit
 fi
 . session-functions.sh
+if [ -n "$1" ] && [ "$1" != "now" ] ; then
+	if ! wait_on_activity ; then
+		exit
+	fi
+fi
 if [ -f $LOCKF ] ; then
 	rm $LOCKF				#for sleeper
 fi
 if [ -w /run/faillock/$USER ] ; then
 	rm /run/faillock/$USER		#for pam
 fi
-(N=;while sleeper $N ; do N=$(( 0$N + 1 )) ; sleep 10 ; done) & disown
+sleeper $@

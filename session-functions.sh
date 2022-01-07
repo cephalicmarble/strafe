@@ -6,8 +6,8 @@ function activity() {
 	([ -f $LOCKF ] || [ 0$(strafe mlist 2>/dev/null | wc -l) -gt 0 ]) && [ -z "$(pidof xsecurelock)" ]
 }
 
-function sleeper() {
-	if [ -n "$1" ] ; then
+function wait_on_activity() {
+	for j in 1 2 3 ; do
 		for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 ; do
 			if activity ; then
 				rm -f $LOCKF
@@ -16,13 +16,28 @@ function sleeper() {
 			fi
 			sleep 1
 		done
-	fi
-	(yes y | sudo strafe stop-all mprune prune clean
-	sudo network-stop
-	sudo -k
-	for i in $(cat /proc/acpi/wakeup | grep enabled | cut -f1 -d\ ) ; do echo $i > /proc/acpi/wakeup ; done
-	lxqt-leave --suspend) & disown
+	done
 	true
+}
+
+function suspension() {
+	#for i in $(cat /proc/acpi/wakeup | grep enabled | cut -f1 -d\ ) ; do echo $i > /proc/acpi/wakeup ; done
+	(yes y | strafe stop-all mprune prune clean
+	network-stop
+	sudo -k
+	systemctl suspend) & disown
+}
+
+function sleeper() {
+	if [ "$1" != "now" ] ; then
+		if wait_on_activity ; then
+			suspension
+		else
+			exit	
+		fi
+	else
+		suspension
+	fi
 }
 
 function resumer() {

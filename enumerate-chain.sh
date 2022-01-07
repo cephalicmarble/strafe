@@ -24,7 +24,11 @@ EOF
 			exit
 		fi
 	fi
-	echo "$TARGET:$(realpath $TARGET.raw)"
+	if [ -n "$L" ] ; then
+		echo "$TARGET:$(realpath $TARGET.raw)"
+	else
+		echo -n " $TARGET:$(realpath $TARGET.raw)"
+	fi
 	TARGET="$TARGET" PKGF="$PKGF" enum_layers_impl
 }
 #
@@ -80,7 +84,11 @@ function enum_layers_impl() {
 				exit
 			fi
 		fi
-		echo "${name}:$(realpath ${name}.raw)"
+		if [ -n "$L" ] ; then
+			echo "${name}:$(realpath ${name}.raw)"
+		else
+			echo -n " ${name}:$(realpath ${name}.raw)"
+		fi
 		if ! [ -r ${base} ] ; then
 			echo "Error: $base not found!"
 			return

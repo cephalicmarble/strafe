@@ -38,16 +38,12 @@ function lf() {
 function chkbr() {
 	lf modprobe br_netfilter
 	lf ifconfig br0 down
-	lf brctl delbr br0
-	lf brctl addbr br0
-	#brctl addif br0 lo
-	#brctl addif br0 eth0
 	lf ifconfig br0 up ${BRIDGEHOST}/${BRIDGENET/*\/}
 	lf ip link set dev br0 up
-	for i in $(ifconfig -s | grep vb | cut -f1 -d\ ) ; do
-		brctl addif br0 $i
-	done
-	lf brctl show br0
+	#for i in $(ifconfig -s | grep vb | cut -f1 -d\ ) ; do
+	#	brctl addif br0 $i
+	#done
+	#lf brctl show br0
 }
 function chkconf() {
 	for i in $@ ; do
