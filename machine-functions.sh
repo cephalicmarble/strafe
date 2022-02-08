@@ -107,6 +107,10 @@ function enable_services() {
 		echo "${FUNCNAME[0]}"
 		return
 	fi
+	echo "disabling pkexec..."
+#	if $mach/usr/sbin/pkexec ; then
+#		mv $mach/usr/sbin/pkexec $mach/root/.
+#	fi
 	echo "enabling systemd services..." 1>&2
 	systemctl="systemctl --root=$(realpath $mach)"
 	cp $MACHINEBASE/resolved.conf $mach/etc/systemd/resolved.conf
@@ -119,16 +123,16 @@ function enable_services() {
 		$systemctl enable console-getty@$i
 	done	
 	#
-	$systemctl disable systemd-resolved
+	$systemctl enable systemd-resolved
 	rm $(realpath $mach)/etc/resolv.conf
 		
-	#ln -s /run/systemd/resolve/stub-resolv.conf $(realpath $mach)/etc/resolv.conf
+	ln -s /run/systemd/resolve/stub-resolv.conf $(realpath $mach)/etc/resolv.conf
 	#
 	$systemctl enable systemd-networkd
 	cat <<-EOF > $mach/etc/rc.local
 		#!/bin/sh
 		find /usr/lib/systemd/network/ -name \*.network -exec rm {} \;
-		echo "nameserver 169.254.0.1" > /etc/resolv.conf
+		#echo "nameserver 127.0.0.53" > /etc/resolv.conf
 EOF
 	chmod 0744 $mach/etc/rc.local
 	chown root $mach/etc/rc.local
