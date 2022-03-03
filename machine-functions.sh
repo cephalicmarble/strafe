@@ -70,21 +70,23 @@ function userdb() {
 		echo "permit useful shells..." 1>&2
 		for i in $(cat $mach/etc/bath-user) ; do
 			if ! usermod -R $(realpath $mach) -s /bin/bash $i ; then
-				useradd -R $(realpath $mach) -s /bin/bash -d /home/$i $i
+				useradd -R $(realpath $mach) -s /bin/bash -d /home/$i -u $(userdbctl user $i | grep UID | cut -f2 -d: ) $i
 			fi
 			mkdir -p $mach/home/$i
 			mkdir -p $mach/root/mnt/$i
 		done
 		
 		# bring over the groups removing at least video group. (systemd-sysusers bug)
-		EEXPR="^($(cat $mach/etc/group | grep -E '^[a-z]' | cut -f1 -d: | clean | tr ',' '|')video)"
-		echo "Thinning out gshadow (disabled)..." 1>&2
-		echo $EEXPR 1>&2
+		
+		#EEXPR="^($(cat $mach/etc/group | grep -E '^[a-z]' | cut -f1 -d: | clean | tr ',' '|')video)"
+		#echo "Thinning out gshadow (disabled)..." 1>&2
+		#echo $EEXPR 1>&2
+		
 		#cat /etc/group | grep -v -E $EEXPR >> $mach/etc/group
 		#cat /etc/gshadow | grep -v -E $EEXPR >> $mach/etc/gshadow
 
-		echo "fix our transferred passwd databases..." 1>&2
-		yes y | pwck -R $(realpath $mach)
+		#echo "fix our transferred passwd databases..." 1>&2
+		#yes y | pwck -R $(realpath $mach)
 
 		echo "fix our transferred group databases..." 1>&2
 		yes y | grpck -R $(realpath $mach)
