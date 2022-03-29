@@ -24,6 +24,7 @@ function suspension() {
 	#for i in $(cat /proc/acpi/wakeup | grep enabled | cut -f1 -d\ ) ; do echo $i > /proc/acpi/wakeup ; done
 	(yes y | strafe stop-all mprune prune clean
 	network-stop
+	sudo su -c lxlocker		
 	sudo -k
 	systemctl suspend) & disown
 }
