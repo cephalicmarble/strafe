@@ -13,10 +13,10 @@ PWD=$(pwd)
 . wire.sh
 . bridge.sh
 
-if [[ $(ifconfig br0 2>&1) =~ "not found" ]] ; then
-	SHLVL=1 setup
-	SHLVL=1 work
-fi
+#if [[ $(ifconfig br0 2>&1) =~ "not found" ]] ; then
+#	SHLVL=1 setup
+#	SHLVL=1 work
+#fi
 
 function addfile() { FILES="$FILES '$1'"; touch "$1"; chmod a+rw "$1"; }
 function addfifo() { FILES="$FILES '$1'"; mkfifo "$1"; chmod a+rw "$1"; } 
@@ -64,7 +64,8 @@ function bridgeip() {
 	IP=$(ifconfig br0 | grep inet | cut -f2 -dt | cut -f1-2 -d. | cut -f2 -d\ | head -1)
 	if [ -z "$IP" ] ; then
 		echo "Rebuilding the bridge!"
-		bridge.sh
+		SHLVL=1 setup
+		SHLVL=1 work
 		IP=$(bridgeip)
 		if [ -z "$IP" ] ; then
 			echo "Bridge is out!"

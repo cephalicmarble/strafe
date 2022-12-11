@@ -1,5 +1,5 @@
 #!/bin/sh
-while (ps -ax | grep md126_resync) ; do 
+while [ $(ps -ax | grep sync | wc -l) != '1' ] ; do 
 	date
 	sleep 300
 done

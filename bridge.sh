@@ -81,15 +81,19 @@ function chkconf() {
 function work() {
 	for i in $(echo $@) ; do
 		case "$1" in
-			"host-net")
+			"abridge")
+				chkconf /usr/src/ebtables/*.bridge
 				chkconf /usr/src/netfilter/*.bridge
 				chkconf /usr/src/hosts.bridge
 				chkconf /usr/src/network/*.bridge
 				chkconf /usr/src/pulse/*.bridge
 				rsync -lr $BRIDGETMPDIR/usr/src/pulse/ /etc/pulse/
 				rsync -lr $BRIDGETMPDIR/usr/src/netfilter/ /etc/netfilter/
+				rsync -lr $BRIDGETMPDIR/usr/src/ebtables/ /etc/ebtables/
 				rsync -vlr $BRIDGETMPDIR/usr/src/network/ /etc/systemd/network/
-				nft flush ruleset ; nft -f - < /etc/nftables.conf
+			;;
+			"host-net")
+				systemctl restart nftables
 				mv $BRIDGETMPDIR/usr/src/hosts /etc/hosts
 				chkbr
 			;;
@@ -110,6 +114,7 @@ function work() {
 #
 if [ -n "$DOWORK" ] || ([ $SHLVL == 1 ] && [ -z "$NOWORK" ]) ; then
 	setup
+	work abridge
 	work host-net 
 	work guest-net
 fi

@@ -1,4 +1,7 @@
 #!/bin/sh
 IF=eth0
 ifconfig $IF down
+systemctl stop systemd-networkd
+systemctl stop systemd-resolved
+networkctl
 #killall wpa_supplicant

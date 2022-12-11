@@ -2,7 +2,7 @@
 if [ -z "$PKGVER" ] ; then
 	pushd /usr/src/php-src
 	git branch -a | less
-	PKGVER=8.0.9
+	PKGVER=8.0.10
 	read -i$PKGVER -t10 PKGVER
 	popd
 fi

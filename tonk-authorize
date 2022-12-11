@@ -15,3 +15,4 @@ xhost +si:localuser:donk
 xhost +si:localuser:root
 xhost +si:localuser:ide
 xhost +si:localuser:test
+xhost +si:localuser:steam

@@ -140,6 +140,10 @@ function action_verb() {
 		;;
 		"root")
 			if zenity --timeout=5 --question --text="Root shell in /mach/machines?" --ok-label="Yarr." --cancel-label="Avaunt!" ; then
+				if ! puzzle ; then
+					echo "Nice try, buster."
+					exit
+				fi
 				echo "Yarrup."
 				pushd /mach/machines
 				/bin/bash -i
